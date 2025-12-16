@@ -10,6 +10,7 @@ import random
 import time
 import threading
 import logging
+import os
 from datetime import datetime, timezone
 from typing import Dict, Any, List
 from dataclasses import dataclass
@@ -18,6 +19,10 @@ from kafka.errors import KafkaError
 import argparse
 import signal
 import sys
+from dotenv import load_dotenv
+
+# Charger les variables d'environnement depuis .env
+load_dotenv()
 
 # Configuration du logging
 logging.basicConfig(
@@ -400,17 +405,54 @@ def signal_handler(sig, frame):
 def main():
     """Fonction principale"""
     parser = argparse.ArgumentParser(description="Kafka Producer Bomber pour tester Prometheus")
-    parser.add_argument("--bootstrap-servers", required=True, help="Serveurs Kafka (ex: kafka1:9092,kafka2:9092)")
-    parser.add_argument("--username", required=True, help="Nom d'utilisateur SASL PLAIN")
-    parser.add_argument("--password", required=True, help="Mot de passe SASL PLAIN")
-    parser.add_argument("--topic-prefix", default="test-prometheus", help="Préfixe des topics")
-    parser.add_argument("--num-topics", type=int, default=10, help="Nombre de topics à utiliser")
-    parser.add_argument("--messages-per-second", type=int, default=1000, help="Messages par seconde")
-    parser.add_argument("--num-threads", type=int, default=5, help="Nombre de threads producteurs")
-    parser.add_argument("--duration-minutes", type=int, default=60, help="Durée en minutes")
-    parser.add_argument("--verbose", action="store_true", help="Mode verbeux")
+    parser.add_argument("--bootstrap-servers", 
+                       default=os.getenv('KAFKA_BOOTSTRAP_SERVERS'),
+                       help="Serveurs Kafka (ex: kafka1:9092,kafka2:9092). Peut être défini via KAFKA_BOOTSTRAP_SERVERS dans .env")
+    parser.add_argument("--username", 
+                       default=os.getenv('KAFKA_USERNAME'),
+                       help="Nom d'utilisateur SASL PLAIN. Peut être défini via KAFKA_USERNAME dans .env")
+    parser.add_argument("--password", 
+                       default=os.getenv('KAFKA_PASSWORD'),
+                       help="Mot de passe SASL PLAIN. Peut être défini via KAFKA_PASSWORD dans .env")
+    parser.add_argument("--security-protocol",
+                       default=os.getenv('KAFKA_SECURITY_PROTOCOL', 'SASL_SSL'),
+                       help="Protocole de sécurité (SASL_SSL, SASL_PLAINTEXT, SSL, PLAINTEXT). Peut être défini via KAFKA_SECURITY_PROTOCOL dans .env")
+    parser.add_argument("--sasl-mechanism",
+                       default=os.getenv('KAFKA_SASL_MECHANISM', 'PLAIN'),
+                       help="Mécanisme SASL (PLAIN, SCRAM-SHA-256, SCRAM-SHA-512, etc.). Peut être défini via KAFKA_SASL_MECHANISM dans .env")
+    parser.add_argument("--topic-prefix", 
+                       default=os.getenv('KAFKA_TOPIC_PREFIX', 'test-prometheus'),
+                       help="Préfixe des topics. Peut être défini via KAFKA_TOPIC_PREFIX dans .env")
+    parser.add_argument("--num-topics", 
+                       type=int, 
+                       default=int(os.getenv('KAFKA_NUM_TOPICS', '10')),
+                       help="Nombre de topics à utiliser. Peut être défini via KAFKA_NUM_TOPICS dans .env")
+    parser.add_argument("--messages-per-second", 
+                       type=int, 
+                       default=int(os.getenv('KAFKA_MESSAGES_PER_SECOND', '1000')),
+                       help="Messages par seconde. Peut être défini via KAFKA_MESSAGES_PER_SECOND dans .env")
+    parser.add_argument("--num-threads", 
+                       type=int, 
+                       default=int(os.getenv('KAFKA_NUM_THREADS', '5')),
+                       help="Nombre de threads producteurs. Peut être défini via KAFKA_NUM_THREADS dans .env")
+    parser.add_argument("--duration-minutes", 
+                       type=int, 
+                       default=int(os.getenv('KAFKA_DURATION_MINUTES', '60')),
+                       help="Durée en minutes. Peut être défini via KAFKA_DURATION_MINUTES dans .env")
+    parser.add_argument("--verbose", 
+                       action="store_true",
+                       default=os.getenv('KAFKA_VERBOSE', 'false').lower() == 'true',
+                       help="Mode verbeux. Peut être défini via KAFKA_VERBOSE=true dans .env")
 
     args = parser.parse_args()
+
+    # Vérifier les paramètres requis
+    if not args.bootstrap_servers:
+        parser.error("--bootstrap-servers est requis ou doit être défini via KAFKA_BOOTSTRAP_SERVERS dans .env")
+    if not args.username:
+        parser.error("--username est requis ou doit être défini via KAFKA_USERNAME dans .env")
+    if not args.password:
+        parser.error("--password est requis ou doit être défini via KAFKA_PASSWORD dans .env")
 
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
@@ -422,6 +464,8 @@ def main():
     # Créer la configuration
     config = ProducerConfig(
         bootstrap_servers=args.bootstrap_servers.split(','),
+        security_protocol=args.security_protocol,
+        sasl_mechanism=args.sasl_mechanism,
         sasl_plain_username=args.username,
         sasl_plain_password=args.password,
         topic_prefix=args.topic_prefix,

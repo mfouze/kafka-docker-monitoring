@@ -9,6 +9,7 @@ import json
 import time
 import threading
 import logging
+import os
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass
@@ -17,6 +18,10 @@ import argparse
 import signal
 import sys
 from collections import defaultdict, Counter
+from dotenv import load_dotenv
+
+# Charger les variables d'environnement depuis .env
+load_dotenv()
 
 # Configuration du logging
 logging.basicConfig(
@@ -478,22 +483,69 @@ def signal_handler(sig, frame):
 def main():
     """Fonction principale"""
     parser = argparse.ArgumentParser(description="Kafka Consumer Bomber pour tester Prometheus")
-    parser.add_argument("--bootstrap-servers", required=True, help="Serveurs Kafka (ex: kafka1:9092,kafka2:9092)")
-    parser.add_argument("--username", required=True, help="Nom d'utilisateur SASL PLAIN")
-    parser.add_argument("--password", required=True, help="Mot de passe SASL PLAIN")
-    parser.add_argument("--topic-prefix", default="test-prometheus", help="Préfixe des topics")
-    parser.add_argument("--num-topics", type=int, default=10, help="Nombre de topics à consommer")
-    parser.add_argument("--consumer-group", default="prometheus-test-group", help="Groupe de consommateurs")
-    parser.add_argument("--num-consumers", type=int, default=1, help="Nombre de consommateurs (recommandé: 1 pour éviter les conflits SSL)")
-    parser.add_argument("--duration-minutes", type=int, default=60, help="Durée en minutes")
-    parser.add_argument("--auto-offset-reset", default="earliest", choices=["earliest", "latest"], help="Position de départ")
-    parser.add_argument("--ssl-cafile", help="Chemin vers le fichier CA SSL (optionnel)")
-    parser.add_argument("--ssl-certfile", help="Chemin vers le fichier certificat SSL (optionnel)")
-    parser.add_argument("--ssl-keyfile", help="Chemin vers le fichier clé SSL (optionnel)")
-    parser.add_argument("--ssl-password", help="Mot de passe pour la clé SSL (optionnel)")
-    parser.add_argument("--verbose", action="store_true", help="Mode verbeux")
+    parser.add_argument("--bootstrap-servers", 
+                       default=os.getenv('KAFKA_BOOTSTRAP_SERVERS'),
+                       help="Serveurs Kafka (ex: kafka1:9092,kafka2:9092). Peut être défini via KAFKA_BOOTSTRAP_SERVERS dans .env")
+    parser.add_argument("--username", 
+                       default=os.getenv('KAFKA_USERNAME'),
+                       help="Nom d'utilisateur SASL PLAIN. Peut être défini via KAFKA_USERNAME dans .env")
+    parser.add_argument("--password", 
+                       default=os.getenv('KAFKA_PASSWORD'),
+                       help="Mot de passe SASL PLAIN. Peut être défini via KAFKA_PASSWORD dans .env")
+    parser.add_argument("--security-protocol",
+                       default=os.getenv('KAFKA_SECURITY_PROTOCOL', 'SASL_SSL'),
+                       help="Protocole de sécurité (SASL_SSL, SASL_PLAINTEXT, SSL, PLAINTEXT). Peut être défini via KAFKA_SECURITY_PROTOCOL dans .env")
+    parser.add_argument("--sasl-mechanism",
+                       default=os.getenv('KAFKA_SASL_MECHANISM', 'PLAIN'),
+                       help="Mécanisme SASL (PLAIN, SCRAM-SHA-256, SCRAM-SHA-512, etc.). Peut être défini via KAFKA_SASL_MECHANISM dans .env")
+    parser.add_argument("--topic-prefix", 
+                       default=os.getenv('KAFKA_TOPIC_PREFIX', 'test-prometheus'),
+                       help="Préfixe des topics. Peut être défini via KAFKA_TOPIC_PREFIX dans .env")
+    parser.add_argument("--num-topics", 
+                       type=int, 
+                       default=int(os.getenv('KAFKA_NUM_TOPICS', '10')),
+                       help="Nombre de topics à consommer. Peut être défini via KAFKA_NUM_TOPICS dans .env")
+    parser.add_argument("--consumer-group", 
+                       default=os.getenv('KAFKA_CONSUMER_GROUP', 'prometheus-test-group'),
+                       help="Groupe de consommateurs. Peut être défini via KAFKA_CONSUMER_GROUP dans .env")
+    parser.add_argument("--num-consumers", 
+                       type=int, 
+                       default=int(os.getenv('KAFKA_NUM_CONSUMERS', '1')),
+                       help="Nombre de consommateurs (recommandé: 1 pour éviter les conflits SSL). Peut être défini via KAFKA_NUM_CONSUMERS dans .env")
+    parser.add_argument("--duration-minutes", 
+                       type=int, 
+                       default=int(os.getenv('KAFKA_DURATION_MINUTES', '60')),
+                       help="Durée en minutes. Peut être défini via KAFKA_DURATION_MINUTES dans .env")
+    parser.add_argument("--auto-offset-reset", 
+                       default=os.getenv('KAFKA_AUTO_OFFSET_RESET', 'earliest'),
+                       choices=["earliest", "latest"],
+                       help="Position de départ. Peut être défini via KAFKA_AUTO_OFFSET_RESET dans .env")
+    parser.add_argument("--ssl-cafile", 
+                       default=os.getenv('KAFKA_SSL_CAFILE'),
+                       help="Chemin vers le fichier CA SSL (optionnel). Peut être défini via KAFKA_SSL_CAFILE dans .env")
+    parser.add_argument("--ssl-certfile", 
+                       default=os.getenv('KAFKA_SSL_CERTFILE'),
+                       help="Chemin vers le fichier certificat SSL (optionnel). Peut être défini via KAFKA_SSL_CERTFILE dans .env")
+    parser.add_argument("--ssl-keyfile", 
+                       default=os.getenv('KAFKA_SSL_KEYFILE'),
+                       help="Chemin vers le fichier clé SSL (optionnel). Peut être défini via KAFKA_SSL_KEYFILE dans .env")
+    parser.add_argument("--ssl-password", 
+                       default=os.getenv('KAFKA_SSL_PASSWORD'),
+                       help="Mot de passe pour la clé SSL (optionnel). Peut être défini via KAFKA_SSL_PASSWORD dans .env")
+    parser.add_argument("--verbose", 
+                       action="store_true",
+                       default=os.getenv('KAFKA_VERBOSE', 'false').lower() == 'true',
+                       help="Mode verbeux. Peut être défini via KAFKA_VERBOSE=true dans .env")
 
     args = parser.parse_args()
+
+    # Vérifier les paramètres requis
+    if not args.bootstrap_servers:
+        parser.error("--bootstrap-servers est requis ou doit être défini via KAFKA_BOOTSTRAP_SERVERS dans .env")
+    if not args.username:
+        parser.error("--username est requis ou doit être défini via KAFKA_USERNAME dans .env")
+    if not args.password:
+        parser.error("--password est requis ou doit être défini via KAFKA_PASSWORD dans .env")
 
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
@@ -505,6 +557,8 @@ def main():
     # Créer la configuration
     config = ConsumerConfig(
         bootstrap_servers=args.bootstrap_servers.split(','),
+        security_protocol=args.security_protocol,
+        sasl_mechanism=args.sasl_mechanism,
         sasl_plain_username=args.username,
         sasl_plain_password=args.password,
         topic_prefix=args.topic_prefix,
