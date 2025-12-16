@@ -1,0 +1,84 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  scrape_timeout: 10s
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+rule_files: []
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Kafka Brokers JMX Metrics
+  - job_name: 'kafka'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets:
+          - 'kafka-broker-1:7070'
+          - 'kafka-broker-2:7070'
+          - 'kafka-broker-3:7070'
+        labels:
+          cluster: 'production'
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: '([^:]+):\d+'
+        target_label: instance
+        replacement: '${1}'
+
+  # Kafka Connect MM2 JMX Metrics
+  - job_name: 'kafka-connect'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets:
+          - 'kafka-connect-1:7072'
+          - 'kafka-connect-2:7072'
+        labels:
+          cluster: 'production'
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: '([^:]+):\d+'
+        target_label: instance
+        replacement: '${1}'
+
+  # Zookeeper JMX Metrics
+  - job_name: 'zookeeper'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets:
+          - 'zookeeper-1:7071'
+          - 'zookeeper-2:7071'
+          - 'zookeeper-3:7071'
+        labels:
+          cluster: 'production'
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: '([^:]+):\d+'
+        target_label: instance
+        replacement: '${1}'
+
+  # Node Exporter - System Metrics
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets:
+          - 'kafka-broker-1:9100'
+          - 'kafka-broker-2:9100'
+          - 'kafka-broker-3:9100'
+          - 'kafka-connect-1:9100'
+          - 'kafka-connect-2:9100'
+          - 'zookeeper-1:9100'
+          - 'zookeeper-2:9100'
+          - 'zookeeper-3:9100'
+        labels:
+          cluster: 'production'
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: '([^:]+):\d+'
+        target_label: instance
+        replacement: '${1}'

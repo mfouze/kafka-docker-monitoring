@@ -1,0 +1,210 @@
+lowercaseOutputName: true
+lowercaseOutputLabelNames: true
+
+rules:
+  # Connect Worker Metrics
+  - pattern: kafka.connect<type=connect-worker-metrics>([^:]+):
+    name: kafka_connect_worker_$1
+    type: GAUGE
+
+  - pattern: kafka.connect<type=connect-worker-metrics, connector=(.+)>([^:]+):
+    name: kafka_connect_worker_connector_$2
+    type: GAUGE
+    labels:
+      connector: "$1"
+
+  # Connect Worker Rebalance Metrics
+  - pattern: kafka.connect<type=connect-worker-rebalance-metrics>([^:]+):
+    name: kafka_connect_worker_rebalance_$1
+    type: GAUGE
+
+  # Connector Metrics
+  - pattern: kafka.connect<type=connector-metrics, connector=(.+)><>(.+): (.+)
+    name: kafka_connect_connector_$2
+    type: GAUGE
+    labels:
+      connector: "$1"
+
+  - pattern: kafka.connect<type=connector-metrics, connector=(.+)><>status
+    name: kafka_connect_connector_status
+    type: GAUGE
+    labels:
+      connector: "$1"
+
+  # Connector Task Metrics
+  - pattern: kafka.connect<type=connector-task-metrics, connector=(.+), task=(\d+)><>(.+):
+    name: kafka_connect_connector_task_$3
+    type: GAUGE
+    labels:
+      connector: "$1"
+      task: "$2"
+
+  # Source Task Metrics
+  - pattern: kafka.connect<type=source-task-metrics, connector=(.+), task=(\d+)><>(.+):
+    name: kafka_connect_source_task_$3
+    type: GAUGE
+    labels:
+      connector: "$1"
+      task: "$2"
+
+  - pattern: kafka.connect<type=source-task-metrics, connector=(.+), task=(\d+)><>source-record-poll-total
+    name: kafka_connect_source_task_source_record_poll_total
+    type: COUNTER
+    labels:
+      connector: "$1"
+      task: "$2"
+
+  - pattern: kafka.connect<type=source-task-metrics, connector=(.+), task=(\d+)><>source-record-write-total
+    name: kafka_connect_source_task_source_record_write_total
+    type: COUNTER
+    labels:
+      connector: "$1"
+      task: "$2"
+
+  # Sink Task Metrics
+  - pattern: kafka.connect<type=sink-task-metrics, connector=(.+), task=(\d+)><>(.+):
+    name: kafka_connect_sink_task_$3
+    type: GAUGE
+    labels:
+      connector: "$1"
+      task: "$2"
+
+  - pattern: kafka.connect<type=sink-task-metrics, connector=(.+), task=(\d+)><>sink-record-read-total
+    name: kafka_connect_sink_task_sink_record_read_total
+    type: COUNTER
+    labels:
+      connector: "$1"
+      task: "$2"
+
+  - pattern: kafka.connect<type=sink-task-metrics, connector=(.+), task=(\d+)><>sink-record-send-total
+    name: kafka_connect_sink_task_sink_record_send_total
+    type: COUNTER
+    labels:
+      connector: "$1"
+      task: "$2"
+
+  - pattern: kafka.connect<type=sink-task-metrics, connector=(.+), task=(\d+)><>partition-count
+    name: kafka_connect_sink_task_partition_count
+    type: GAUGE
+    labels:
+      connector: "$1"
+      task: "$2"
+
+  - pattern: kafka.connect<type=sink-task-metrics, connector=(.+), task=(\d+)><>offset-commit-completion-total
+    name: kafka_connect_sink_task_offset_commit_completion_total
+    type: COUNTER
+    labels:
+      connector: "$1"
+      task: "$2"
+
+  # Task Error Metrics
+  - pattern: kafka.connect<type=task-error-metrics, connector=(.+), task=(\d+)><>(.+):
+    name: kafka_connect_task_error_$3
+    type: GAUGE
+    labels:
+      connector: "$1"
+      task: "$2"
+
+  - pattern: kafka.connect<type=task-error-metrics, connector=(.+), task=(\d+)><>total-errors-logged
+    name: kafka_connect_task_error_total_errors_logged
+    type: COUNTER
+    labels:
+      connector: "$1"
+      task: "$2"
+
+  - pattern: kafka.connect<type=task-error-metrics, connector=(.+), task=(\d+)><>total-record-errors
+    name: kafka_connect_task_error_total_record_errors
+    type: COUNTER
+    labels:
+      connector: "$1"
+      task: "$2"
+
+  - pattern: kafka.connect<type=task-error-metrics, connector=(.+), task=(\d+)><>total-record-failures
+    name: kafka_connect_task_error_total_record_failures
+    type: COUNTER
+    labels:
+      connector: "$1"
+      task: "$2"
+
+  - pattern: kafka.connect<type=task-error-metrics, connector=(.+), task=(\d+)><>total-records-skipped
+    name: kafka_connect_task_error_total_records_skipped
+    type: COUNTER
+    labels:
+      connector: "$1"
+      task: "$2"
+
+  - pattern: kafka.connect<type=task-error-metrics, connector=(.+), task=(\d+)><>total-retries
+    name: kafka_connect_task_error_total_retries
+    type: COUNTER
+    labels:
+      connector: "$1"
+      task: "$2"
+
+  # Kafka Producer Metrics (for Source Connectors)
+  - pattern: kafka.producer<type=producer-metrics, client-id=(.+)><>(.+):
+    name: kafka_connect_producer_$2
+    type: GAUGE
+    labels:
+      client_id: "$1"
+
+  - pattern: kafka.producer<type=producer-topic-metrics, client-id=(.+), topic=(.+)><>(.+):
+    name: kafka_connect_producer_topic_$3
+    type: GAUGE
+    labels:
+      client_id: "$1"
+      topic: "$2"
+
+  # Kafka Consumer Metrics (for Sink Connectors)
+  - pattern: kafka.consumer<type=consumer-metrics, client-id=(.+)><>(.+):
+    name: kafka_connect_consumer_$2
+    type: GAUGE
+    labels:
+      client_id: "$1"
+
+  - pattern: kafka.consumer<type=consumer-fetch-manager-metrics, client-id=(.+)><>(.+):
+    name: kafka_connect_consumer_fetch_$2
+    type: GAUGE
+    labels:
+      client_id: "$1"
+
+  - pattern: kafka.consumer<type=consumer-fetch-manager-metrics, client-id=(.+), topic=(.+)><>(.+):
+    name: kafka_connect_consumer_fetch_topic_$3
+    type: GAUGE
+    labels:
+      client_id: "$1"
+      topic: "$2"
+
+  - pattern: kafka.consumer<type=consumer-coordinator-metrics, client-id=(.+)><>(.+):
+    name: kafka_connect_consumer_coordinator_$2
+    type: GAUGE
+    labels:
+      client_id: "$1"
+
+  # JVM Metrics
+  - pattern: java.lang<type=Memory><HeapMemoryUsage>(\w+)
+    name: kafka_connect_jvm_heap_memory_$1
+    type: GAUGE
+
+  - pattern: java.lang<type=Memory><NonHeapMemoryUsage>(\w+)
+    name: kafka_connect_jvm_nonheap_memory_$1
+    type: GAUGE
+
+  - pattern: java.lang<type=GarbageCollector, name=(.+)><>CollectionCount
+    name: kafka_connect_jvm_gc_collection_count
+    type: COUNTER
+    labels:
+      gc: "$1"
+
+  - pattern: java.lang<type=GarbageCollector, name=(.+)><>CollectionTime
+    name: kafka_connect_jvm_gc_collection_time_ms
+    type: COUNTER
+    labels:
+      gc: "$1"
+
+  - pattern: java.lang<type=Threading><>ThreadCount
+    name: kafka_connect_jvm_thread_count
+    type: GAUGE
+
+  - pattern: java.lang<type=OperatingSystem><>OpenFileDescriptorCount
+    name: kafka_connect_jvm_open_file_descriptor_count
+    type: GAUGE

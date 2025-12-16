@@ -1,0 +1,168 @@
+lowercaseOutputName: true
+lowercaseOutputLabelNames: true
+
+rules:
+  # Zookeeper Server Metrics
+  - pattern: org.apache.ZooKeeperService<name0=ReplicatedServer_id(\d+)><>(\w+)
+    name: zookeeper_$2
+    type: GAUGE
+    labels:
+      server_id: "$1"
+
+  - pattern: org.apache.ZooKeeperService<name0=ReplicatedServer_id(\d+), name1=replica.(\d+)><>(\w+)
+    name: zookeeper_replica_$3
+    type: GAUGE
+    labels:
+      server_id: "$1"
+      replica_id: "$2"
+
+  - pattern: org.apache.ZooKeeperService<name0=ReplicatedServer_id(\d+), name1=replica.(\d+), name2=(\w+)><>(\w+)
+    name: zookeeper_$3_$4
+    type: GAUGE
+    labels:
+      server_id: "$1"
+      replica_id: "$2"
+
+  - pattern: org.apache.ZooKeeperService<name0=ReplicatedServer_id(\d+), name1=replica.(\d+), name2=(\w+), name3=(\w+)><>(\w+)
+    name: zookeeper_$3_$4_$5
+    type: GAUGE
+    labels:
+      server_id: "$1"
+      replica_id: "$2"
+
+  # Standalone Server Metrics
+  - pattern: org.apache.ZooKeeperService<name0=StandaloneServer_port(\d+)><>(\w+)
+    name: zookeeper_$2
+    type: GAUGE
+    labels:
+      port: "$1"
+
+  - pattern: org.apache.ZooKeeperService<name0=StandaloneServer_port(\d+), name1=(\w+)><>(\w+)
+    name: zookeeper_$2_$3
+    type: GAUGE
+    labels:
+      port: "$1"
+
+  # InMemory Data Tree
+  - pattern: org.apache.ZooKeeperService<name0=(.+), name1=InMemoryDataTree><>(\w+)
+    name: zookeeper_inmemorydatatree_$2
+    type: GAUGE
+
+  # Quorum Metrics
+  - pattern: org.apache.ZooKeeperService<name0=(.+)><>QuorumSize
+    name: zookeeper_quorum_size
+    type: GAUGE
+
+  # Connection Metrics
+  - pattern: org.apache.ZooKeeperService<name0=(.+)><>NumAliveConnections
+    name: zookeeper_num_alive_connections
+    type: GAUGE
+
+  - pattern: org.apache.ZooKeeperService<name0=(.+)><>OutstandingRequests
+    name: zookeeper_outstanding_requests
+    type: GAUGE
+
+  - pattern: org.apache.ZooKeeperService<name0=(.+)><>AvgRequestLatency
+    name: zookeeper_avg_request_latency
+    type: GAUGE
+
+  - pattern: org.apache.ZooKeeperService<name0=(.+)><>MinRequestLatency
+    name: zookeeper_min_request_latency
+    type: GAUGE
+
+  - pattern: org.apache.ZooKeeperService<name0=(.+)><>MaxRequestLatency
+    name: zookeeper_max_request_latency
+    type: GAUGE
+
+  # Data Size Metrics
+  - pattern: org.apache.ZooKeeperService<name0=(.+)><>DataDirSize
+    name: zookeeper_data_dir_size
+    type: GAUGE
+
+  - pattern: org.apache.ZooKeeperService<name0=(.+)><>LogDirSize
+    name: zookeeper_log_dir_size
+    type: GAUGE
+
+  # Request Metrics
+  - pattern: org.apache.ZooKeeperService<name0=(.+)><>PacketsReceived
+    name: zookeeper_packets_received
+    type: COUNTER
+
+  - pattern: org.apache.ZooKeeperService<name0=(.+)><>PacketsSent
+    name: zookeeper_packets_sent
+    type: COUNTER
+
+  # Leader/Follower Metrics
+  - pattern: org.apache.ZooKeeperService<name0=(.+)><>PendingSyncs
+    name: zookeeper_pending_syncs
+    type: GAUGE
+
+  - pattern: org.apache.ZooKeeperService<name0=(.+)><>FollowerSyncTime
+    name: zookeeper_follower_sync_time
+    type: GAUGE
+
+  # Watch Metrics
+  - pattern: org.apache.ZooKeeperService<name0=(.+)><>WatchCount
+    name: zookeeper_watch_count
+    type: GAUGE
+
+  # Znode Metrics
+  - pattern: org.apache.ZooKeeperService<name0=(.+)><>NodeCount
+    name: zookeeper_node_count
+    type: GAUGE
+
+  - pattern: org.apache.ZooKeeperService<name0=(.+)><>EphemeralsCount
+    name: zookeeper_ephemerals_count
+    type: GAUGE
+
+  # Session Metrics
+  - pattern: org.apache.ZooKeeperService<name0=(.+)><>GlobalSessions
+    name: zookeeper_global_sessions
+    type: GAUGE
+
+  - pattern: org.apache.ZooKeeperService<name0=(.+)><>LocalSessions
+    name: zookeeper_local_sessions
+    type: GAUGE
+
+  # Election Metrics
+  - pattern: org.apache.ZooKeeperService<name0=(.+)><>ElectionTimeTaken
+    name: zookeeper_election_time_taken
+    type: GAUGE
+
+  # Commit Processor
+  - pattern: org.apache.ZooKeeperService<name0=(.+), name1=CommitProcessor><>(\w+)
+    name: zookeeper_commitprocessor_$2
+    type: GAUGE
+
+  # JVM Metrics
+  - pattern: java.lang<type=Memory><HeapMemoryUsage>(\w+)
+    name: zookeeper_jvm_heap_memory_$1
+    type: GAUGE
+
+  - pattern: java.lang<type=Memory><NonHeapMemoryUsage>(\w+)
+    name: zookeeper_jvm_nonheap_memory_$1
+    type: GAUGE
+
+  - pattern: java.lang<type=GarbageCollector, name=(.+)><>CollectionCount
+    name: zookeeper_jvm_gc_collection_count
+    type: COUNTER
+    labels:
+      gc: "$1"
+
+  - pattern: java.lang<type=GarbageCollector, name=(.+)><>CollectionTime
+    name: zookeeper_jvm_gc_collection_time_ms
+    type: COUNTER
+    labels:
+      gc: "$1"
+
+  - pattern: java.lang<type=Threading><>ThreadCount
+    name: zookeeper_jvm_thread_count
+    type: GAUGE
+
+  - pattern: java.lang<type=OperatingSystem><>OpenFileDescriptorCount
+    name: zookeeper_jvm_open_file_descriptor_count
+    type: GAUGE
+
+  - pattern: java.lang<type=OperatingSystem><>MaxFileDescriptorCount
+    name: zookeeper_jvm_max_file_descriptor_count
+    type: GAUGE
