@@ -1,0 +1,310 @@
+# MirrorMaker 2 Alerting Rules
+# À inclure dans prometheus.yml: rule_files: ['rules/mm2-alerts.yml']
+
+groups:
+  # ============================================
+  # ALERTES CRITIQUES (Pager / Astreinte)
+  # ============================================
+  - name: mm2-critical
+    rules:
+      # Connector en état FAILED
+      - alert: MM2ConnectorFailed
+        expr: |
+          kafka_connect_connector_status{connector=~".*MirrorSourceConnector.*|.*MirrorCheckpointConnector.*|.*MirrorHeartbeatConnector.*", status="failed"} == 1
+        for: 2m
+        labels:
+          severity: critical
+          team: sre
+          component: mm2
+        annotations:
+          summary: "🚨 MM2 Connector {{ $labels.connector }} is FAILED"
+          description: "Le connecteur MirrorMaker 2 {{ $labels.connector }} est en état FAILED depuis plus de 2 minutes. Intervention immédiate requise."
+          runbook_url: "https://wiki.internal/runbooks/mm2-connector-failed"
+          action: |
+            1. Vérifier les logs: kubectl logs -l app=kafka-connect --tail=100
+            2. Vérifier le status: curl http://kafka-connect:8083/connectors/{{ $labels.connector }}/status
+            3. Tenter un restart: curl -X POST http://kafka-connect:8083/connectors/{{ $labels.connector }}/restart
+
+      # Tasks en état FAILED
+      - alert: MM2TasksFailed
+        expr: |
+          kafka_connect_connector_task_status{connector=~".*Mirror.*", status="failed"} > 0
+        for: 2m
+        labels:
+          severity: critical
+          team: sre
+          component: mm2
+        annotations:
+          summary: "🚨 MM2 Tasks FAILED pour {{ $labels.connector }}"
+          description: "{{ $value }} task(s) du connecteur {{ $labels.connector }} sont en état FAILED."
+          runbook_url: "https://wiki.internal/runbooks/mm2-task-failed"
+
+      # Lag de réplication critique (> 10000 messages)
+      - alert: MM2ReplicationLagCritical
+        expr: |
+          sum(kafka_connect_source_task_metrics_source_record_active_count{connector=~".*MirrorSourceConnector.*"}) > 10000
+        for: 5m
+        labels:
+          severity: critical
+          team: sre
+          component: mm2
+        annotations:
+          summary: "🚨 MM2 Lag de réplication critique: {{ $value | humanize }} messages"
+          description: "Le lag de réplication MM2 dépasse 10000 messages depuis 5 minutes. Risque de perte de données si non traité."
+          runbook_url: "https://wiki.internal/runbooks/mm2-lag-critical"
+          action: |
+            1. Vérifier la capacité des workers Connect
+            2. Augmenter tasks.max si nécessaire
+            3. Vérifier les quotas sur le cluster target
+
+      # Latence de réplication hors SLO (> 5s)
+      - alert: MM2LatencyExceedsSLO
+        expr: |
+          avg(kafka_connect_mirror_source_connector_replication_latency_ms) > 5000
+        for: 5m
+        labels:
+          severity: critical
+          team: sre
+          component: mm2
+        annotations:
+          summary: "🚨 MM2 Latence hors SLO: {{ $value | humanize }}ms (seuil: 5000ms)"
+          description: "La latence moyenne de réplication MM2 dépasse le SLO de 5 secondes depuis 5 minutes."
+          runbook_url: "https://wiki.internal/runbooks/mm2-latency-slo"
+
+      # Tous les workers Connect down
+      - alert: MM2AllWorkersDown
+        expr: |
+          count(up{job="kafka-connect"} == 1) == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: sre
+          component: mm2
+        annotations:
+          summary: "🚨 TOUS les workers Kafka Connect sont DOWN"
+          description: "Aucun worker Kafka Connect n'est accessible. La réplication MM2 est complètement arrêtée."
+          runbook_url: "https://wiki.internal/runbooks/connect-all-down"
+
+  # ============================================
+  # ALERTES WARNING (Notification équipe)
+  # ============================================
+  - name: mm2-warning
+    rules:
+      # Lag de réplication élevé (> 5000 messages)
+      - alert: MM2ReplicationLagHigh
+        expr: |
+          sum(kafka_connect_source_task_metrics_source_record_active_count{connector=~".*MirrorSourceConnector.*"}) > 5000
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+          component: mm2
+        annotations:
+          summary: "⚠️ MM2 Lag élevé: {{ $value | humanize }} messages"
+          description: "Le lag de réplication MM2 dépasse 5000 messages depuis 10 minutes."
+          runbook_url: "https://wiki.internal/runbooks/mm2-lag-warning"
+
+      # Latence de réplication élevée (> 1s)
+      - alert: MM2LatencyHigh
+        expr: |
+          avg(kafka_connect_mirror_source_connector_replication_latency_ms) > 1000
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+          component: mm2
+        annotations:
+          summary: "⚠️ MM2 Latence élevée: {{ $value | humanize }}ms"
+          description: "La latence moyenne de réplication MM2 dépasse 1 seconde depuis 10 minutes."
+
+      # Ratio de réplication dégradé (< 99%)
+      - alert: MM2ReplicationRatioDegraded
+        expr: |
+          (
+            sum(kafka_connect_source_task_metrics_source_record_write_total{connector=~".*MirrorSourceConnector.*"})
+            /
+            sum(kafka_connect_source_task_metrics_source_record_poll_total{connector=~".*MirrorSourceConnector.*"})
+          ) * 100 < 99
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+          component: mm2
+        annotations:
+          summary: "⚠️ MM2 Ratio de réplication dégradé: {{ $value | humanize }}%"
+          description: "Le ratio write/poll est inférieur à 99%. Des messages peuvent être perdus."
+
+      # Échecs de commit d'offset
+      - alert: MM2OffsetCommitFailures
+        expr: |
+          kafka_connect_connector_task_metrics_offset_commit_failure_percentage{connector=~".*Mirror.*"} > 5
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+          component: mm2
+        annotations:
+          summary: "⚠️ MM2 Échecs commit offset: {{ $value | humanize }}%"
+          description: "Le taux d'échec des commits d'offset dépasse 5% pour {{ $labels.connector }}."
+
+      # Buffer producer presque plein
+      - alert: MM2ProducerBufferHigh
+        expr: |
+          (1 - kafka_producer_producer_metrics_buffer_available_bytes / kafka_producer_producer_metrics_buffer_total_bytes) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+          component: mm2
+        annotations:
+          summary: "⚠️ MM2 Buffer producer: {{ $value | humanize }}% utilisé"
+          description: "Le buffer du producer MM2 est rempli à plus de 80%. Risque de backpressure."
+
+      # Buffer exhausted events
+      - alert: MM2ProducerBufferExhausted
+        expr: |
+          increase(kafka_producer_producer_metrics_buffer_exhausted_total[5m]) > 0
+        labels:
+          severity: warning
+          team: platform
+          component: mm2
+        annotations:
+          summary: "⚠️ MM2 Buffer producer épuisé"
+          description: "Le buffer du producer MM2 a été épuisé {{ $value }} fois dans les 5 dernières minutes."
+
+      # Throttling détecté
+      - alert: MM2ProducerThrottled
+        expr: |
+          kafka_producer_producer_metrics_produce_throttle_time_max > 500
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+          component: mm2
+        annotations:
+          summary: "⚠️ MM2 Producer throttled: {{ $value | humanize }}ms"
+          description: "Le producer MM2 est limité par un quota. Temps de throttle: {{ $value }}ms."
+
+      # Worker Connect down
+      - alert: MM2WorkerDown
+        expr: |
+          up{job="kafka-connect"} == 0
+        for: 2m
+        labels:
+          severity: warning
+          team: platform
+          component: mm2
+        annotations:
+          summary: "⚠️ Worker Kafka Connect {{ $labels.instance }} DOWN"
+          description: "Le worker Kafka Connect {{ $labels.instance }} est inaccessible depuis 2 minutes."
+
+      # Startup failures
+      - alert: MM2TaskStartupFailures
+        expr: |
+          increase(kafka_connect_connect_worker_metrics_task_startup_failure_total[10m]) > 3
+        labels:
+          severity: warning
+          team: platform
+          component: mm2
+        annotations:
+          summary: "⚠️ MM2 Échecs démarrage tasks: {{ $value }}"
+          description: "{{ $value }} échecs de démarrage de tasks dans les 10 dernières minutes."
+
+      # CPU workers élevé
+      - alert: MM2WorkerCPUHigh
+        expr: |
+          100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle",instance=~"kafka-connect.*"}[5m])) * 100) > 80
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+          component: mm2
+        annotations:
+          summary: "⚠️ CPU worker {{ $labels.instance }}: {{ $value | humanize }}%"
+          description: "L'utilisation CPU du worker Connect {{ $labels.instance }} dépasse 80%."
+
+      # Mémoire workers élevée
+      - alert: MM2WorkerMemoryHigh
+        expr: |
+          (1 - node_memory_MemAvailable_bytes{instance=~"kafka-connect.*"} / node_memory_MemTotal_bytes{instance=~"kafka-connect.*"}) * 100 > 85
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+          component: mm2
+        annotations:
+          summary: "⚠️ Mémoire worker {{ $labels.instance }}: {{ $value | humanize }}%"
+          description: "L'utilisation mémoire du worker Connect {{ $labels.instance }} dépasse 85%."
+
+  # ============================================
+  # ALERTES INFO (Dashboard / Monitoring)
+  # ============================================
+  - name: mm2-info
+    rules:
+      # Rebalance en cours
+      - alert: MM2RebalanceInProgress
+        expr: |
+          changes(kafka_connect_connect_worker_metrics_rebalance_total[5m]) > 0
+        labels:
+          severity: info
+          team: platform
+          component: mm2
+        annotations:
+          summary: "ℹ️ Rebalance MM2 en cours"
+          description: "Un rebalance des tasks MM2 est en cours. La réplication peut être temporairement affectée."
+
+      # Nouveau topic détecté
+      - alert: MM2NewTopicReplicated
+        expr: |
+          changes(count(kafka_connect_mirror_source_connector_record_count)[10m]) > 0
+        labels:
+          severity: info
+          team: platform
+          component: mm2
+        annotations:
+          summary: "ℹ️ Nouveau(x) topic(s) en réplication MM2"
+          description: "Le nombre de topics répliqués par MM2 a changé."
+
+  # ============================================
+  # RECORDING RULES (Pré-calculs)
+  # ============================================
+  - name: mm2-recording
+    rules:
+      # Latence moyenne sur 5 minutes
+      - record: mm2:replication_latency_avg:5m
+        expr: |
+          avg(avg_over_time(kafka_connect_mirror_source_connector_replication_latency_ms[5m]))
+
+      # Lag total
+      - record: mm2:replication_lag_total
+        expr: |
+          sum(kafka_connect_source_task_metrics_source_record_active_count{connector=~".*MirrorSourceConnector.*"})
+
+      # Throughput (records/s)
+      - record: mm2:throughput_records_per_second
+        expr: |
+          sum(rate(kafka_connect_source_task_metrics_source_record_write_total{connector=~".*MirrorSourceConnector.*"}[1m]))
+
+      # Throughput (bytes/s)
+      - record: mm2:throughput_bytes_per_second
+        expr: |
+          sum(rate(kafka_connect_mirror_source_connector_byte_count[1m]))
+
+      # Ratio de réplication
+      - record: mm2:replication_ratio_percent
+        expr: |
+          (
+            sum(kafka_connect_source_task_metrics_source_record_write_total{connector=~".*MirrorSourceConnector.*"})
+            /
+            sum(kafka_connect_source_task_metrics_source_record_poll_total{connector=~".*MirrorSourceConnector.*"})
+          ) * 100
+
+      # Nombre de tasks running
+      - record: mm2:tasks_running
+        expr: |
+          count(kafka_connect_connector_task_status{connector=~".*Mirror.*", status="running"})
+
+      # Nombre de workers up
+      - record: mm2:workers_up
+        expr: |
+          count(up{job="kafka-connect"} == 1)

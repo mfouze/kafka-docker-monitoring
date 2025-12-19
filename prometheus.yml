@@ -2,6 +2,9 @@ global:
   scrape_interval: 15s
   evaluation_interval: 15s
   scrape_timeout: 10s
+  # Labels externes appliqués à toutes les métriques
+  external_labels:
+    env: 'production'  # Peut être surchargé par les labels dans static_configs
 
 alerting:
   alertmanagers:
@@ -15,6 +18,8 @@ scrape_configs:
   - job_name: 'prometheus'
     static_configs:
       - targets: ['localhost:9090']
+        labels:
+          env: 'production'
 
   # Kafka Brokers JMX Metrics
   - job_name: 'kafka'
@@ -26,6 +31,7 @@ scrape_configs:
           - 'kafka-broker-3:7070'
         labels:
           cluster: 'production'
+          env: 'production'
     relabel_configs:
       - source_labels: [__address__]
         regex: '([^:]+):\d+'
@@ -41,6 +47,8 @@ scrape_configs:
           - 'kafka-connect-2:7072'
         labels:
           cluster: 'production'
+          env: 'production'
+          kafka_connect_cluster: 'production'
     relabel_configs:
       - source_labels: [__address__]
         regex: '([^:]+):\d+'
@@ -57,6 +65,7 @@ scrape_configs:
           - 'zookeeper-3:7071'
         labels:
           cluster: 'production'
+          env: 'production'
     relabel_configs:
       - source_labels: [__address__]
         regex: '([^:]+):\d+'
@@ -77,6 +86,8 @@ scrape_configs:
           - 'zookeeper-3:9100'
         labels:
           cluster: 'production'
+          env: 'production'
+          origin_prometheus: 'prometheus'
     relabel_configs:
       - source_labels: [__address__]
         regex: '([^:]+):\d+'
